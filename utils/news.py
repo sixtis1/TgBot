@@ -24,7 +24,7 @@ def parse_news(rss: str):
                     "href": href
                 }
         news_list.append(news_item)
-    print(news_list)
+    #print(news_list)
     return news_list
 
 

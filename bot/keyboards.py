@@ -1,25 +1,67 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from utils.news import parse_news, categories
+from aiogram.filters.callback_data import CallbackData
 
+def main_menu():
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="Погода", callback_data="weather"))
+    builder.add(InlineKeyboardButton(text="Новости", callback_data="select_category"))
+    builder.add(InlineKeyboardButton(text="Шутка", callback_data="joke"))
+    builder.row(
+        InlineKeyboardButton(text="Инфо", callback_data="info"),
+        InlineKeyboardButton(text="Настройки", callback_data="settings")
+    )
+    return builder.as_markup()
 
-main_menu = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Погода"), KeyboardButton(text="Новости"), KeyboardButton(text="Шутка")],
-                                          [KeyboardButton(text="Инфо"), KeyboardButton(text="Настройки")]],
-                                          resize_keyboard=True,
-                                          input_field_placeholder="Выберите пункт меню:")
 
 async def select_news_category():
-    keyboard = ReplyKeyboardBuilder()
+    builder = InlineKeyboardBuilder()
     for category in categories:
-        keyboard.add(KeyboardButton(text=category))
-    keyboard.add(KeyboardButton(text="В главное меню"))
-    return  keyboard.adjust(3).as_markup(resize_keyboard=True)
+        builder.add(InlineKeyboardButton(text=category, callback_data=f"category_{category}"))
+    builder.row(InlineKeyboardButton(text="В главное меню", callback_data="main_menu"))
+    return builder.adjust(2).as_markup()
 
-async def news(category):
-    news_data = parse_news(category)
-    for news_item in news_data:
-        print("Title:", news_item["title"])
-        print("Description:", news_item["description"])
-        print("Link:", news_item["link"])
-        print("Href:", news_item["href"])
-    pass
+
+class Pagination(CallbackData, prefix="pag"):
+    action: str
+    page: int
+    category: str 
+
+
+def paginator(page: int = 0, category: str = "", total_pages: int = 0):
+    builder = InlineKeyboardBuilder()
+    
+    builder.add(
+        InlineKeyboardButton(text="В главное меню", callback_data="main_menu"),
+        InlineKeyboardButton(text="К выбору категории", callback_data="select_category")
+    )
+    
+    builder.row(
+        InlineKeyboardButton(text="⬅️", callback_data=Pagination(action="prev", page=page-1, category=category).pack()),
+        InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data="current_page"),
+        InlineKeyboardButton(text="➡️", callback_data=Pagination(action="next", page=page+1, category=category).pack())
+    )
+
+    return builder.as_markup()
+
+
+def set_weather():
+    builder = ReplyKeyboardBuilder()
+    builder.add(KeyboardButton(text="Отправить геолокацию 🚩", request_location=True))
+    return builder.adjust(1).as_markup(resize_keyboard=True)
+
+
+def show_weather():
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        InlineKeyboardButton(text="В главное меню", callback_data="main_menu"),
+        InlineKeyboardButton(text="Сменить город", callback_data="change_location")
+    )
+    return builder.as_markup(resize_keyboard=True)
+
+def joke():
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="В главное меню", callback_data="main_menu"),
+                InlineKeyboardButton(text="Ещё", callback_data="new_joke"))
+    return builder.as_markup(resize_keyboard=True)
