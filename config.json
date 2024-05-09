@@ -1,0 +1,6 @@
+{
+    "database_url": "postgresql+asyncpg://postgres:1234@localhost:5432/bot_db",
+    "telegram_bot_token": "7062383295:AAGFO8oU4ZDenOTCXQHvGs-JSzzO_81-4o0",
+    "weather_api_key": "c2349bc8f2cc4da686463da1ad989ca2",
+    "asset_directory": "assets/"
+}

@@ -1,7 +1,9 @@
 import requests
+from config import config
+
 
 async def get_weather_by_city(city_name):
-    api_key = "7624baa6d18e6ba45825a7d701414994"
+    api_key = config["weather_api_key"]
     base_url = "http://api.openweathermap.org/data/2.5/weather"
     complete_url = f"{base_url}?q={city_name}&appid={api_key}&units=metric&lang=ru"
     response = requests.get(complete_url)

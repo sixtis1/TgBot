@@ -1,5 +1,6 @@
 import requests
 import json
+import aiogram
 
 def fetch_joke(retry_count=3):
     url = "http://rzhunemogu.ru/RandJSON.aspx?CType=1"
@@ -14,8 +15,9 @@ def fetch_joke(retry_count=3):
                 if retry_count > 0:
                     print(f"Ошибка декодирования JSON, попытка {3 - retry_count + 1}: {e}")
                     return fetch_joke(retry_count) 
-                else:
-                    return "Не удалось декодировать JSON после нескольких попыток."
+            except aiogram.exceptions.TelegramBadRequest as e:
+                print(f"Ошибка слишком большая шутка, попытка {3 - retry_count + 1}: {e}")
+                return fetch_joke(retry_count) 
         else:
             return "Не удалось загрузить шутку: HTTP статус " + str(response.status_code)
     except Exception as e:
