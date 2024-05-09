@@ -60,8 +60,22 @@ def show_weather():
     )
     return builder.as_markup(resize_keyboard=True)
 
+
 def joke():
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="В главное меню", callback_data="main_menu"),
                 InlineKeyboardButton(text="Ещё", callback_data="new_joke"))
     return builder.as_markup(resize_keyboard=True)
+
+
+def help():
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="В главное меню", callback_data="main_menu"))
+    return builder.as_markup(resize_keyboard=True)
+
+
+def settings():
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="Сменить регион", callback_data="change_location"),
+                InlineKeyboardButton(text="В главное меню", callback_data="main_menu"))
+    return builder.adjust(1).as_markup(resize_keyboard=True)

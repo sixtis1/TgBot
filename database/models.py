@@ -1,10 +1,11 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
-from sqlalchemy import BigInteger, Text, String
+from sqlalchemy import BigInteger, String
+from config import config
 
-DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/bot_db"
+db_url = config["database_url"]
 
-engine = create_async_engine(DATABASE_URL)
+engine = create_async_engine(db_url)
 
 async_session = async_sessionmaker(engine)
 
@@ -21,7 +22,6 @@ class User(Base):
     current_command: Mapped[str] = mapped_column(String(32), nullable=True)
     city = mapped_column(String(15))
     coord = mapped_column(String(22))
-    settings = mapped_column(Text, nullable=True)
     
 
 async def async_main():
