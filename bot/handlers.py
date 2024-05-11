@@ -1,17 +1,17 @@
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto, URLInputFile, ReplyKeyboardRemove
 from aiogram.filters.command import Command
 from aiogram import F, Router
-from utils.news import parse_news
-from utils.joke import fetch_joke
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from config import config
 import bot.keyboards as kb
 import database.requests as rq
 import utils.weather as weather
+import utils.news as news
+import utils.joke as joke
+
 
 router = Router()
-asset_string = config["asset_directory"]
 
 
 class Location(StatesGroup):
@@ -21,7 +21,7 @@ class Location(StatesGroup):
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     await rq.set_user(message.from_user.id, message.from_user.username)
-    photo_path = f"{asset_string}main_menu.png"
+    photo_path = f"{config['asset_directory']}main_menu.png"
     photo = FSInputFile(photo_path)
     await rq.update_last_command(message.from_user.id, "start")
     await message.answer_photo(photo=photo, caption="Добро пожаловать в тестового бота!", reply_markup=kb.main_menu())
@@ -29,85 +29,77 @@ async def cmd_start(message: Message):
 
 @router.callback_query(kb.Pagination.filter(F.action.in_(["prev", "next"])))
 async def pagination_handler(call: CallbackQuery, callback_data: kb.Pagination):
-    page_num = int(callback_data.page)
+    current_page_number = int(callback_data.page)
     category = callback_data.category
-    news_items = parse_news(category)
+    news_items = news.parse_news(category)
     max_pages = len(news_items) - 1
     
-    if page_num < 0 or page_num > max_pages:
+    if current_page_number < 0 or current_page_number > max_pages:
         await call.answer("Вы достигли предела страниц.")
         return
     
-    caption = f'<b>{news_items[page_num]["title"]}</b>\n'
-    caption += f'{news_items[page_num]["description"]}\n'
-    caption += f'<a href="{news_items[page_num]["link"]}"><b>Ссылка на новость</b></a>'
-    photo = InputMediaPhoto(media=URLInputFile(news_items[page_num]["href"]), 
-                            caption=caption, 
-                            parse_mode="HTML")
-    await call.message.edit_media(media=photo, 
-                                  caption=caption,
-                                  reply_markup=kb.paginator(page_num, category, max_pages+1))
+    await call.message.edit_media(news.format_news_item(news_items[current_page_number]),
+                                  reply_markup=kb.paginator(current_page_number, category, max_pages+1))
 
 
 @router.callback_query()
-async def handle_callback_query(call: CallbackQuery, state: FSMContext):
-    action = call.data
-    await rq.update_last_command(call.from_user.id, call.data)
+async def handle_callback_query(callback_query: CallbackQuery, state: FSMContext):
+    action = callback_query.data
+    await rq.update_last_command(callback_query.from_user.id, callback_query.data)
     if action.startswith("category_"):
         category = action.split("_")[1]
-        news_items = parse_news(category)
+        news_items = news.parse_news(category)
 
         if news_items:
-            caption = f'<b>{news_items[0]["title"]}</b>\n'
-            caption += f'{news_items[0]["description"]}\n'
-            caption += f'<a href="{news_items[0]["link"]}"><b>Ссылка на новость</b></a>'
-            photo = InputMediaPhoto(media=URLInputFile(news_items[0]["href"]), 
-                                    caption=caption,
-                                    parse_mode="HTML")
-            await call.message.edit_media(media=photo, 
-                                          caption=caption,
+            await callback_query.message.edit_media(news.format_news_item(news_items[0]),
                                           reply_markup=kb.paginator(0, category, len(news_items)))
         else:
-            await call.message.edit_text("Новостей в данной категории нет.")
+            await callback_query.message.edit_text("Новостей в данной категории нет.")
+    match action:
+        case "main_menu":
+            photo_path = f"{config['asset_directory']}main_menu.png"
+            photo = InputMediaPhoto(media=FSInputFile(photo_path), caption= "Главное меню")
+            await callback_query.message.edit_media(media=photo, caption="Главное меню", reply_markup=kb.main_menu())
+            await rq.update_last_command(callback_query.from_user.id, callback_query.data)
 
-    elif action == "main_menu":
-        photo_path = f"{asset_string}main_menu.png"
-        photo = InputMediaPhoto(media=FSInputFile(photo_path), caption= "Главное меню")
-        await call.message.edit_media(media=photo, caption="Главное меню", reply_markup=kb.main_menu())
-        await rq.update_last_command(call.from_user.id, call.data)
-
-    elif action == "select_category":
-        photo_path = f"{asset_string}{action}.jpg"
-        photo_media = InputMediaPhoto(media=FSInputFile(photo_path))
-        await call.message.edit_media(media=photo_media)
-        await call.message.edit_caption("Выберите категорию новостей", reply_markup=await kb.select_news_category())
-        await rq.update_last_command(call.from_user.id, call.data)
-
-    elif action == "weather":
-        await handle_weather_interaction(call, state)
-        await call.answer()
-    elif action == "change_location":
-        await rq.delete_location(call.from_user.id)
-        await handle_weather_interaction(call, state)
-        await call.answer()
-    elif action == "current_page":
-        await call.answer()
-    elif action == "joke":
-        await handle_joke_interaction(call)
-    elif action == "new_joke":
-        await handle_joke_interaction(call, repeat=True)
-    elif action == "info":
-        await handle_info_interaction(call)
-    elif action == "settings":
-        await handle_settings_interaction(call)
-    else:
-        await pagination_handler(call)
-        await call.answer()
+        case "select_category":
+            await news.handle_select_category_interaction(callback_query, reply_markup=kb.select_news_category())
+        case "weather":
+            await handle_weather_interaction(callback_query, state)
+        case "change_location":
+            await rq.delete_location(callback_query.from_user.id)
+            await handle_weather_interaction(callback_query, state)
+            await callback_query.answer()
+        case "current_page":
+            await callback_query.answer()
+        case "joke":
+            await joke.handle_joke_interaction(callback_query, reply_markup=kb.joke())
+        case "new_joke":
+            await joke.handle_joke_interaction(callback_query, repeat=True, reply_markup=kb.joke())
+        case "info":
+            await handle_info_interaction(callback_query)
+        case "settings":
+            await handle_settings_interaction(callback_query)
+        case _:
+            await pagination_handler(callback_query)
+            await callback_query.answer()
 
 
-@router.callback_query(F.data == "noop")
-async def noop_handler(call: CallbackQuery):
-    await call.answer(cache_time=60) 
+@router.message(F.text.startswith("/"))
+async def handle_commands(message: Message, state: FSMContext):
+    match message.text:
+        case "/weather":
+            await handle_weather_interaction(message, state, from_command=True)
+        case "/news":
+            await news.handle_select_category_interaction(message, reply_markup=kb.select_news_category(), from_command=True)
+        case "/info":
+            await handle_info_interaction(message, from_command=True)
+        case "/settings":
+            await handle_settings_interaction(message, from_command=True)
+        case "/joke":
+            await joke.handle_joke_interaction(message, from_command=True, reply_markup=kb.joke())
+        case _:
+            await message.answer("Данной комманды не существует.")
 
 
 async def send_response_weather(event, data, first_time=None, from_command=None, reply_markup=None):
@@ -147,33 +139,6 @@ async def handle_weather_interaction(event, state: FSMContext, from_command=None
         await send_response_weather(event, weather_info, reply_markup=kb.show_weather(), from_command=from_command)    
 
 
-async def send_response_joke(event, from_command=None, repeat=None, reply_markup=None):
-    joke = fetch_joke()
-    photo_path = f"{asset_string}joke.jpg"
-    photo = FSInputFile(photo_path)
-    if from_command:
-        if isinstance(event, CallbackQuery):
-            await event.message.answer_photo(photo=photo, caption=joke, reply_markup=kb.joke())
-        elif isinstance(event, Message):
-            await event.answer_photo(photo=photo, caption=joke, reply_markup=kb.joke())
-    elif repeat:
-        if isinstance(event, CallbackQuery):
-            await event.message.edit_caption(caption=joke, reply_markup=kb.joke())
-        elif isinstance(event, Message):
-            await event.edit_caption(caption=joke, reply_markup=kb.joke())
-    else:
-        photo = InputMediaPhoto(media=photo,caption=joke)
-        if isinstance(event, CallbackQuery):
-            await event.message.edit_media(media=photo, caption=joke, reply_markup=kb.joke())
-        elif isinstance(event, Message):
-            await event.edit_media(media=photo, caption=joke, reply_markup=kb.joke())
-
-
-async def handle_joke_interaction(event, from_command=None, repeat=None):
-    await rq.update_last_command(event.from_user.id, "joke")
-    await send_response_joke(event, from_command=from_command, repeat=repeat)
-
-
 async def send_response_info(event, from_command=None):
     help_text = (
         "<b>Доступные команды:</b>\n"
@@ -184,7 +149,7 @@ async def send_response_info(event, from_command=None):
         "/info - справочная информация\n"
         "/settings - настройки бота\n"
     )
-    photo_path = f"{asset_string}help.png"
+    photo_path = f"{config['asset_directory']}help.png"
     photo = FSInputFile(photo_path)
     if from_command:
         if isinstance(event, CallbackQuery):
@@ -204,7 +169,7 @@ async def send_response_settings(event, from_command=None):
         "Вы можете настроить следующие параметры:\n"
         "- <b>Регион</b>: сменить регион погоды.\n"
     )
-    photo_path = f"{asset_string}settings.png"
+    photo_path = f"{config['asset_directory']}settings.png"
     photo = FSInputFile(photo_path)
     if from_command:
         if isinstance(event, CallbackQuery):
@@ -255,28 +220,3 @@ async def set_location(message: Message, state: FSMContext):
             await state.clear()
         else:
             await message.answer("Город не найден, пожалуйста, проверьте название и попробуйте снова.")
-            
-
-@router.message(Command('weather'))
-async def weather_command(message: Message, state: FSMContext):
-    await handle_weather_interaction(message, state, from_command=True)
-
-
-@router.message(Command('news'))
-async def select_news_category(message: Message):
-    await message.answer("Выберите категорию новостей", reply_markup=await kb.select_news_category())
-
-
-@router.message(Command('info'))
-async def cmd_info(message: Message):
-    await handle_info_interaction(message, from_command=True)
-
-
-@router.message(Command('settings'))
-async def cmd_settings(message: Message):
-    await handle_settings_interaction(message, from_command=True)
-
-
-@router.message(Command('joke'))
-async def cmd_joke(message: Message):
-    await send_response_joke(message, from_command=True)

@@ -21,6 +21,7 @@ async def get_weather_by_city(city_name):
     else:
         return ["Город не найден, пожалуйста, проверьте название и попробуйте снова.", 0]
 
+
 async def get_weather_by_coords(coord_string):
     api_key = "7624baa6d18e6ba45825a7d701414994"
     base_url = "http://api.openweathermap.org/data/2.5/weather"
