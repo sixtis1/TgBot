@@ -1,0 +1,6 @@
+{
+    "database_url": "",
+    "telegram_bot_token": "",
+    "weather_api_key": "",
+    "asset_directory": "assets/"
+}
