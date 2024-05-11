@@ -1,6 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from utils.news import parse_news, categories
+from utils.news import categories
 from aiogram.filters.callback_data import CallbackData
 
 def main_menu():
@@ -15,7 +15,7 @@ def main_menu():
     return builder.as_markup()
 
 
-async def select_news_category():
+def select_news_category():
     builder = InlineKeyboardBuilder()
     for category in categories:
         builder.add(InlineKeyboardButton(text=category, callback_data=f"category_{category}"))
