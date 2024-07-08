@@ -5,7 +5,6 @@ from database.models import async_main
 from config import config
 import logging
 
-
 async def main():
     logging.basicConfig(level=logging.INFO)
     await async_main()
